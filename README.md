@@ -20,7 +20,7 @@ Windows 单机使用，**双击即用，无需安装 Python 或任何依赖**，
 
 ## 快速开始（推荐：下载打包好的 exe）
 
-1. 到 [Releases](https://github.com/sunyg007/cuotiben/releases) 下载 `错题本-单机版-<日期>.zip`；
+1. 到 [Releases](https://github.com/sunyg007/cuotiben/releases) 下载最新版的 `CuotiBen-standalone-<日期>.zip`（页面上的中文标签即「错题本-单机版」）；
 2. 解压到任意文件夹（整个文件夹一起放，数据跟着文件夹走）；
 3. 双击 `错题本.exe` —— 自动弹出宽屏看板窗口，服务同时启动；
    关闭看板窗口（或任务栏「看板服务」小窗）= 服务一起退出；
