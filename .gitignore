@@ -1,0 +1,11 @@
+# 本地数据与密钥不进仓库
+data/
+config.json
+dist/
+build/
+__pycache__/
+*.spec
+.workbuddy/
+.zcode/
+backup_*/
+*.log
