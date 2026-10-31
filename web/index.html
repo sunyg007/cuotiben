@@ -356,9 +356,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .judge{display:flex;gap:10px;padding:14px}
 .judge .btn{flex:1;padding:15px;font-size:16px}
 
-/* 今天该复习几题 —— 复习页顶部入口卡 */
-.due-hero{background:linear-gradient(135deg,#2f6bed,#54a0ff);color:#fff;border-radius:16px;
-  padding:18px;box-shadow:0 6px 18px rgba(47,107,237,.28)}
+/* 今天该复习几题 —— 复习页顶部入口卡（配色跟首页看板 hero 同一套变量，两种主题统一） */
+.due-hero{background:linear-gradient(135deg,var(--pri),color-mix(in srgb,var(--pri) 72%, #7fb0f5));color:#fff;border-radius:16px;
+  padding:18px;box-shadow:0 6px 18px color-mix(in srgb,var(--pri) 28%, transparent)}
 .due-hero .btn{box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .badge.due{background:var(--bad-soft);color:var(--bad)}
 
@@ -1032,8 +1032,9 @@ ${TAG_LIST_FOR_AI}
    · 【填表题 / 表格题】表头和印好的示例照抄，表格里每一格分不清是印的还是填的就留空（写 （  ））；
    · 【选择题 / 判断题】题干和选项照抄，但不要抄孩子在括号里写的字母、打的对勾或叉；
    · 题干要完整：题目要求、条件、数据、单位、A B C D 选项一个不少；被裁掉或看不清的地方用（……）标出，不要编；
-   · 语文阅读、英语阅读理解/完形填空/短文填空/补全对话这类篇章题，先一字不落地抄**整篇短文或对话原文**，
+   · 【只有篇章题（共用同一段短文/对话才出题的）】才先一字不落地抄**整篇短文或对话原文**，
      再紧接着按原顺序抄这篇底下的**全部小题**（保留题号和选项），当作一个整体，不许拆散、不许漏题；
+     默认拆开记的独立小题（选择、独立填空、计算）各抄各的题干；
    · 数学式子写成普通文本：3/4 × 8 = ?、x + 5 = 12、12.5 ÷ 0.5。
    question_text 可以写简短些（列表预览用），clean_text 必须干净且完整，两者内容相近没关系。
    图上没有印刷体题目、或这一项确实做不到时，clean_text 填空字符串 ""。
@@ -1044,6 +1045,8 @@ ${TAG_LIST_FOR_AI}
    写法规定（很关键，写错就定位不到）：
    · **只列错了或答得不完整的小题**，答对的不要列；
    · 有题号就照抄题目里的题号：大题写 2，小题写 2(3)；题目里只有 (1)(2) 没有大题号，就直接写 (1)、(2)；
+   · 独立的一道题（单题识别、或拆开单记的小题）通常只有一个错处（例如【错处：3】）；
+     只有共用短文的篇章题、或一道题里确实含多个小题，才会出现【错处：2(1),2(3),5】这种多错处清单；
    · 题目文本里**根本没有题号**时（例如一行里排了好几个算式、短文里连着好几个空），
      用 correct_answer 里的那套编号（通常就是 1. 2. 3.），照它来写；
    · **绝对不许编造题目里没有的题号**；
@@ -1074,9 +1077,20 @@ const BATCH_PROMPT = `你是一位经验丰富的小学老师，正在批改学�
 要求：
 1. 只要照片里能看清的题，全都列出来——**做对的、做错的、空着没做的都要列**，不要只挑错的，也不要漏题。多页时**每一页都要列**，不要只识别第一页。
 2. 如果一道题从上一页延续到下一页（题干或作答被切断），必须**拼成一道完整的题再列**：不要拆成两题，也不要漏掉后半部分；本题的 student_answer 也要把两页上的笔迹合起来看。
-3. 【阅读/对话这类「篇章题」要整篇当一道题，绝对不要拆成小题】语文的阅读题、英语的阅读理解、
-   完形填空、语篇补全（七选五）、短文填空、对话填空 / 补全对话 —— 这些题离开那篇文章根本没法做，
-   复习时也必须连着原文一起练。所以这类题**整篇只占一个号**，字段这样填：
+3. 【切题规则：小题默认逐题拆开记，只有「共用一段短文/对话」的篇章题才合成一道】
+   ★ 默认行为（最重要）：**每一个有自己题号的小题都单独算一道题、单独占一个号**——
+   英语的单项选择、选择填空、判断正误（题干独立、不依赖别题的）、词汇运用、
+   连词成句、单词拼写；数学的每一道计算题、每一个独立算式、每一道应用题；
+   语文的古诗默写每一句、按课文内容填空的每一小题……全都是**一题一个号**。
+   绝对不要把「五道选择题」「一排计算题」「十个小填空」打包成一道大题——
+   那样复习时会把做对的也拖出来重做，错的那一小题又定位不清。
+   · 拆出来的每一小题：question_text 抄这一小题自己的完整题干（含题号和选项），
+     student_answer / correct_answer / is_correct / check_result / reason_tags 都只写这一小题自己的。
+   ★ 例外——只有同时满足「① 共用同一段短文、对话、表格或图标（离开它做不了题），
+   且 ② 小题之间互相连续、属于同一篇材料」时，才整篇合成一道题：
+   英语的阅读理解、完形填空、语篇补全（七选五）、短文填空（缺原文）、对话填空 / 补全对话、
+   看图填词（共用一张图）；语文的阅读题；数学的共用一个情境/表格的连续几问。
+   这类篇章题**整篇只占一个号**，字段这样填：
    · question_text：先放**短文/对话的完整原文**（含标题和开头结尾，一个字都别省），
      然后紧接着按顺序放这篇底下的**全部小题**（保留原来的题号 1. 2. 3. 和选项 A B C D），
      原文与小题之间、小题与小题目之间用换行分开。**绝不能只写小题而把原文丢了。**
@@ -1087,8 +1101,8 @@ const BATCH_PROMPT = `你是一位经验丰富的小学老师，正在批改学�
      末尾另起一行附上「错处清单」（写法见第 12 条）。
    · knowledge_points：汇总这一篇考到的知识点。
    · index：这一篇只用一个号，不要给每道小题各发一个号。
-   · reason_tags：汇总这一篇里出现的错因标签。
-   （反过来，孤立的单题——单独一道计算题、单独一个填空、单词拼写、连词成句——仍然各占一个号。）
+   · reason_tags：只写**做错的那几个小题**的错因；汇总时挑最贴切的 1～3 个。
+   （判断口诀：**这一小题拿给别人做，需要先看前文吗？不需要 → 拆开单记；需要 → 并入那一篇。**）
 4. 【错因标签（reason_tags）】每道题都要给：先想清楚**学生为什么做错**，再从下面这份清单里
    挑 1～3 个最贴切的标签，用数组给出。**只填清单里原样的词**，一个字都不要改，也不要自己造：
 ${TAG_LIST_FOR_AI}
@@ -1118,8 +1132,9 @@ ${TAG_LIST_FOR_AI}
    · 【选择题 / 判断题】题干和 A B C D 选项照抄，但**不要抄孩子在括号里写的字母、打的对勾或叉**；
    · 【写话题 / 看图题】题目要求、思维导图里印的提示词照抄；孩子写的作文、画的线不要抄；
    · 题干要完整：题目要求、条件、数据、单位、A B C D 选项一个不少；被裁掉或看不清的地方用（……）标出，不要编；
-   · 语文阅读、英语阅读理解/完形填空/语篇补全/短文填空/补全对话这类篇章题，先一字不落地抄**整篇短文或对话原文**，
+   · 【只有第 3 条认定的「篇章题」】才先一字不落地抄**整篇短文或对话原文**，
      再按原顺序抄这篇底下的**全部小题**（保留题号和选项），当作一个整体，不许拆散、不许只抄小题丢掉原文；
+     第 3 条默认拆开的小题（独立选择、独立填空、计算题等）各抄各的题干即可；
    · 数学式子写成普通文本：3/4 × 8 = ?、x + 5 = 12、12.5 ÷ 0.5。
    clean_text 与 question_text 内容可以相近，但 **clean_text 一定要干净、一定要完整**；
    如果两者本来就一样（题干上原本就没有手写痕迹），照抄一份过来就行。
@@ -1131,6 +1146,8 @@ ${TAG_LIST_FOR_AI}
    写法规定（很关键，写错就定位不到）：
    · **只列错了或答得不完整的小题**，答对的不要列；
    · 有题号就照抄题目里的题号：大题写 2，小题写 2(3)；题目里只有 (1)(2) 没有大题号，就直接写 (1)、(2)；
+   · 【按第 3 条拆开单记的小题】一道就是一道，通常只有一个错处（例如【错处：3】）；
+     只有合并记的篇章题、或一道题里确实含多个小题，才会出现【错处：2(1),2(3),5】这种多错处清单；
    · 题目文本里**根本没有题号**时（例如一行里排了好几个算式、短文里连着好几个空），
      用 correct_answer 里的那套编号（通常就是 1. 2. 3.），照它来写；
    · **绝对不许编造题目里没有的题号**；
@@ -2824,6 +2841,30 @@ function paintDueBadge(n) {
    情绪化设计：按时段问好，鼓励语每天轮换一句；最久的题给个「先去见见它」的说法，
    不用催促的口吻。 */
 const LS_DASH_FOLD = 'ctb_dash_fold';
+/* 错题列表的收放（错题页收起按钮管的是下面的题目，不是看板） */
+const LS_LIST_FOLD = 'ctb_list_fold';
+/** 应用/切换列表收放：收起时 listWrap 隐藏并显示提示条；只动 DOM 不重渲染 */
+function paintListFold() {
+  const wrap = $('#listWrap');
+  const btn = $('#listFoldBtn');
+  if (!wrap || !btn) return;
+  const folded = localStorage.getItem(LS_LIST_FOLD) === '1';
+  const hasCards = wrap.children.length && !wrap.querySelector('.empty');
+  wrap.style.display = folded ? 'none' : '';
+  btn.textContent = folded ? '📖 展开错题列表 ▼' : '🗂️ 收起错题列表 ▲';
+  /* 收起态给一条轻提示：现在隐藏了多少题、去哪了 */
+  let hint = $('#listFoldHint');
+  if (folded && !hint && hasCards) {
+    hint = document.createElement('div');
+    hint.id = 'listFoldHint';
+    hint.className = 'tiny muted';
+    hint.style.cssText = 'text-align:center;padding:10px 0 4px';
+    hint.textContent = '错题列表已收起（筛选条件仍然生效），点上方按钮展开';
+    wrap.after(hint);
+  } else if (!folded && hint) {
+    hint.remove();
+  }
+}
 const ENC_POOL = [
   '把每一道错题，变成下一次的底气',
   '错题弄懂一道，就赢一道',
@@ -2890,8 +2931,8 @@ function dashboardHTML() {
     + dashCard(mastered, '已掌握') + dashCard(streak, '连续天数', streak >= 2 ? '🔥' : '')
     + '</div>';
 
-  /* 各科进度：服务端返回全部学科（含 0 题的），空库也是四科 0%，照常可点 */
-  const subs = (st.by_subject || []);
+  /* 各科进度：有题的学科才出方卡（0 题的学科点了也是空列表，别占位置） */
+  const subs = (st.by_subject || []).filter(s => Number(s.n) > 0);
   if (subs.length) {
     h += '<div class="dash-sec"><div class="dash-h">各科进度 <span class="tiny faint">点学科看该科错题</span></div>'
       + '<div class="dash-subjgrid">'
@@ -3160,6 +3201,7 @@ async function renderList() {
   /* 标签筛选 + 复习次数筛选：都默认收起，免得一进首页就是一大片筛选墙 */
   const fTags = f.tags || [];
   const rcTxt = rcLabel(f);
+  const listFolded = localStorage.getItem(LS_LIST_FOLD) === '1';
   h += '<div class="pad" style="padding-top:2px;padding-bottom:0">'
     + '<button class="btn ghost block small" id="tagFilterBtn">🏷️ '
     + (fTags.length ? '已按标签筛选（' + fTags.length + ' 个）· 点这里改'
@@ -3174,9 +3216,16 @@ async function renderList() {
     + '<button class="btn ghost block small mt8" id="markDelBtn" style="display:none"></button>'
     + '</div>';
 
+  /* 题目列表的收放开关：收起后页面只剩看板和筛选条，题目按需再展开 */
+  h += '<div class="pad" style="padding-top:6px;padding-bottom:0">'
+    + '<button class="btn ghost block small" id="listFoldBtn">'
+    + (listFolded ? '📖 展开错题列表 ▼' : '🗂️ 收起错题列表 ▲')
+    + '</button></div>';
+
   h += '<div id="listWrap"></div>';
   $('#main').innerHTML = h;
   $('#listWrap').innerHTML = listBodyHTML(items, f);
+  paintListFold();   // 题目列表的收放（记忆在 localStorage）
 
   const qi = $('#q');
   let t = null;
@@ -3194,6 +3243,12 @@ async function renderList() {
     () => { const y = window.scrollY; renderList().then(() => window.scrollTo(0, y)); });
   const rfb = $('#rcFilterBtn');
   if (rfb) rfb.onclick = () => { S.listFilter.rcOpen = !S.listFilter.rcOpen; renderList(); };
+  const lfb = $('#listFoldBtn');
+  if (lfb) lfb.onclick = () => {
+    if (localStorage.getItem(LS_LIST_FOLD) === '1') localStorage.removeItem(LS_LIST_FOLD);
+    else localStorage.setItem(LS_LIST_FOLD, '1');
+    paintListFold();
+  };
   bindRcFilter('list', () => S.listFilter,
     () => { const y = window.scrollY; renderList().then(() => window.scrollTo(0, y)); });
   bindItemClicks();
@@ -3454,18 +3509,31 @@ function renderCapture() {
 
   /* 还没取图、也没进入手工录入 → 显示取图引导 */
   if (!hasImg && !c.aiDone) {
+    /* 触屏设备（手机/平板）只有一个入口：camInput 带 capture=environment ——
+       Android 上直接打开相机（有文档拍照模式），iOS 上弹出系统选择面板
+       （里面就能拍照或进相册），所以不再需要单独的「相册」按钮。
+       电脑保留两个按钮（相机和相册各有用处）。 */
+    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     h += '<div class="drop"><div class="ico">📷</div>'
       + '<div class="mt8" style="font-weight:600">把作业/试卷上的错题拍清楚</div>'
       + '<div class="tiny muted mt8">尽量正对、光线充足、只拍一道题<br>题目跨页也没关系：先拍第 1 页，之后可「续拍一页」（最多 3 张）</div>'
       + '<div class="row mt16" style="justify-content:center;gap:10px">'
-      + '<button class="btn lg" id="btnCam">📷 拍照</button>'
-      + '<button class="btn lg gray" id="btnLib">🖼️ 相册</button></div>'
+      + (touch
+        ? '<button class="btn lg" id="btnLib">🖼️ 拍照 / 选图</button>'
+          + '<button class="btn gray" id="btnCam">📷 直开相机</button>'
+        : '<button class="btn lg" id="btnCam">📷 拍照</button>'
+          + '<button class="btn lg gray" id="btnLib">🖼️ 相册</button>')
+      + '</div>'
       + '<div class="mt12"><button class="btn ghost" id="btnManual">✍️ 不拍照，手工录入</button></div>'
       + '</div>';
     h += audioBoxHtml(c);
     h += '<div class="pad tiny muted">小提示：照片只用于识别题目，不会公开发布。识别结果保存前你都能改。</div>';
     $('#main').innerHTML = h;
-    $('#btnCam').onclick = () => $('#camInput').click();
+    /* 触屏的主按钮走【不带 capture】的 libInput：系统选择面板里拍照/相册都有——
+       之前合一按钮走 camInput(capture=environment) 在部分安卓/iOS 浏览器上
+       会强制只开相机、没法选已拍的照片（老孙实测踩到）。「直开相机」小入口
+       才用带 capture 的 camInput，给想一步到位的用户。 */
+    if ($('#btnCam')) $('#btnCam').onclick = () => $('#camInput').click();
     $('#btnLib').onclick = () => $('#libInput').click();
     $('#btnManual').onclick = () => {
       c.image = null; c.aiDone = true; c.busy = false;
@@ -3504,9 +3572,14 @@ function renderCapture() {
   if (hasImg && !c.aiDone) {
     h += '<div class="pad">';
     if (ph.length < 6) {
+      const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       h += '<div class="row" style="gap:10px;margin-bottom:12px">'
-        + '<button class="btn gray grow" id="btnMoreCam">📷 续拍一页</button>'
-        + '<button class="btn gray grow" id="btnMoreLib">🖼️ 续选一页</button></div>'
+        + (touch
+          ? '<button class="btn gray grow" id="btnMoreLib">📷 续拍 / 续选一页</button>'
+            + '<button class="btn gray grow" id="btnMoreCam">直开相机</button>'
+          : '<button class="btn gray grow" id="btnMoreCam">📷 续拍一页</button>'
+            + '<button class="btn gray grow" id="btnMoreLib">🖼️ 续选一页</button>')
+        + '</div>'
         + '<div class="tiny muted center" style="margin-bottom:12px">题目跨页/被切断时，把剩下的部分拍下来加进来（最多 6 张，英语卷整面正反面都行）。'
         + '存下后复习时可在题目上方一张一张翻看、随手放大。</div>';
     }
@@ -3535,8 +3608,8 @@ function renderCapture() {
     bindAudioButtons(c);
     $('#btnBatch').onclick = runBatch;         // 多页也能整卷识别（跨页题拼接 + 逐页列全）
     if (ph.length < 6) {                      // 到 6 张上限时这两个按钮不渲染，别绑空
-      $('#btnMoreCam').onclick = () => $('#camInput').click();
-      $('#btnMoreLib').onclick = () => $('#libInput').click();
+      if ($('#btnMoreCam')) $('#btnMoreCam').onclick = () => $('#camInput').click();
+      if ($('#btnMoreLib')) $('#btnMoreLib').onclick = () => $('#libInput').click();
     }
     $('#btnAI').onclick = () => runAI('check');
     $('#btnOnly').onclick = () => runAI('explain');
@@ -6069,7 +6142,7 @@ async function renderSettings() {
   h += '<div class="tiny faint mt8" id="clProg"></div>';
 
   h += '<h3 class="mt24" style="font-size:15px">ℹ️ 关于</h3>';
-  h += '<div class="tiny muted mt8">错题本 v1.22 · 本地部署，数据不出门。<br>'
+  h += '<div class="tiny muted mt8">错题本 v1.24 · 本地部署，数据不出门。<br>'
     + '存储模式：' + (Store.mode === 'server' ? 'SQLite（' + esc((Store.info && Store.info.db) || 'app.db') + '）' : '浏览器 localStorage') + '<br>'
     + '识别方案：多模态大模型一步到位（识别 + 讲解 + 打标签）；英语听力题可上传录音，'
     + '先用语音转文字接口转成原文再交给识别模型。</div>';

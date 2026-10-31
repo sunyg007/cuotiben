@@ -8,8 +8,8 @@
      无地址栏的独立桌面窗口（1440×900，可最大化）——里面就是宽屏看板：
      问候横幅、数字卡、各科进度、优先补练、内嵌复习日历、手机扫码二维码。
 
-关掉这个看板窗口 = 停止服务并退出（一个窗口全搞定，不再有第二个控制窗；
-手机扫码的二维码直接显示在看板右上角，扫码打开的是竖版界面）。
+**单窗口模式**：屏幕上始终只有看板一个窗口。看板窗口一关，服务自动
+停止、本进程安静退出（背后有个完全隐藏的心跳泵在盯着窗口）。
 端口被占用时不报死：多半是已经开过一个错题本（面板/黑窗口/exe），
 此时不再重复起服务，直接把已有服务用看板窗口打开。
 """
@@ -134,17 +134,21 @@ def main():
         open_dashboard_window(base)
         return
 
-    # 本进程持有服务：tk 小窗口当「服务开关」留在任务栏（关它 = 停服务），
-    # 同时轮询 Edge 的 pid——用户把看板窗口关了就自动收摊。
+    # 本进程持有服务：**单窗口模式**——屏幕上只有看板一个窗口，不再弹服务小窗。
+    # tk 只作隐藏的心跳泵：轮询「看板窗口还在不在」，关了就停服务收摊。
+    # 兜底：万一回退成了普通浏览器标签页（枚举不到 --app 窗），或用户从任务
+    # 管理器杀不掉，服务会在 pythonw 进程结束时随进程消失（守护线程）；也可以
+    # 直接结束本进程（任务管理器里叫 pythonw.exe）。
     import tkinter as tk
     root = tk.Tk()
+    root.withdraw()                    # 完全隐藏：不进任务栏，用户看不到它
 
     launch_t = [None]      # 浏览器拉起时刻（探活的宽限期起点）
     miss_t = [None]        # 第一次探不到看板窗口的时刻（连续 6 秒才判退）
 
     def app_window_alive():
         """以「屏幕上还有没有看板窗口」为准的探活：枚举所有顶层窗口，
-        找 --app 模式窗口（标题即页面 <title>，且带应用模式的类名特征）。
+        找 --app 模式窗口（标题以「错题本」开头 + Chrome 系窗口类名）。
         不依赖 pid——Edge 单实例复用时 Popen 拿到的常是转交参数后立即
         退出的「传令兵」，pid 探活会误判窗口已关而错杀服务。"""
         try:
@@ -168,7 +172,6 @@ def main():
                     cls = ctypes.create_unicode_buffer(64)
                     user32.GetClassNameW(hwnd, cls, 64)
                     # Edge/Chrome 应用模式主窗口类名：Chrome_WidgetWin_1
-                    # 且通常带独立的任务栏分组（Chrome_WidgetWin_1 即是顶层窗）
                     if cls.value.startswith("Chrome_WidgetWin"):
                         found[0] = True
                         return False
@@ -181,9 +184,7 @@ def main():
     def poll_closed():
         """看板窗口被用户关掉 → 本进程没有存在意义了，停服务退出。
         宽限 25 秒（窗口肯定已打开或已回退普通浏览器），之后每 3 秒枚举
-        一次窗口；连续 6 秒都找不到看板窗口才认定真关了。
-        注意：如果当年是回退到普通浏览器标签页（没有 --app 窗口），
-        枚举不到应用窗 —— 用 taskbar 小窗的存在兜底：只在小窗也被关时才退。"""
+        一次窗口；连续 6 秒都找不到看板窗口才认定真关了。"""
         born = launch_t[0]
         grace_ok = born and (time.time() - born > 25)
         if grace_ok and not app_window_alive():
@@ -212,28 +213,12 @@ def main():
                 return
             except Exception:
                 pass
-        webbrowser.open(base)           # 回退普通标签页：没有独立窗可探，交给小窗关闭停服
+        webbrowser.open(base)           # 回退普通标签页：探不到独立窗，宽限后靠「页面标题枚举」兜不住——
+                                        # 这种极少数环境（连 Edge/Chrome 都没有）下服务随本进程存活，
+                                        # 用户重启电脑/结束 pythonw.exe 即收摊。
 
     root.after(300, launch)
     root.after(5000, poll_closed)
-    root.title("错题本 · 看板服务")
-    root.geometry("300x120+60+60")     # 小窗口留在任务栏：关它 = 停服务（别让服务无声消失）
-    root.deiconify()
-
-    def on_close():
-        try:
-            if httpd:
-                httpd.shutdown()
-        except Exception:
-            pass
-        root.destroy()
-        os._exit(0)
-
-    root.protocol("WM_DELETE_WINDOW", on_close)
-    tk.Label(root, text="看板窗口已在独立窗口打开。\n关闭本小窗 = 停止服务。",
-             font=("Microsoft YaHei UI", 10), padx=16, pady=12, justify="left").pack()
-    tk.Button(root, text="停止服务并退出", command=on_close,
-              bg="#fdecec", fg="#8a2225", relief="groove").pack(pady=4)
     root.mainloop()
 
     # mainloop 退出（用户通过任务管理器/其它途径关闭隐藏窗口）也兜底停服务
